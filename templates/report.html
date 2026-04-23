@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Diary — Report</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#22c55e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Food Diary">
+    <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; }
+            .page-break { page-break-before: always; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- Toolbar (hidden when printing) -->
+    <div class="no-print bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+            <div class="flex items-center gap-3">
+                <a href="/" class="text-gray-500 hover:text-gray-800 text-sm">← Back to Diary</a>
+                <span class="text-gray-300">|</span>
+                <span class="font-semibold text-gray-700">🥗 Food Diary Report</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="window.print()"
+                    class="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+                    🖨 Print
+                </button>
+                <a href="/api/export?from={{ from_date }}&to={{ to_date }}"
+                    class="flex items-center gap-1.5 bg-green-500 hover:bg-green-600 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+                    ⬇ Export CSV
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-4xl mx-auto px-4 py-8">
+
+        <!-- Report header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Food Diary Report</h1>
+            <p class="text-gray-500 mt-1">
+                {% if from_date == to_date %}
+                    {{ from_date }}
+                {% else %}
+                    {{ from_date }} &mdash; {{ to_date }}
+                {% endif %}
+                &nbsp;·&nbsp; {{ username }}
+            </p>
+        </div>
+
+        <!-- Summary table -->
+        <div class="bg-white rounded-xl shadow-sm mb-8 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h2 class="font-semibold text-gray-700">Summary</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-500 uppercase text-xs tracking-wide">
+                        <tr>
+                            {% for meal in meal_order %}
+                            <th class="px-6 py-3 text-left">{{ meal_labels[meal] }}</th>
+                            {% endfor %}
+                            <th class="px-6 py-3 text-left font-bold text-gray-700">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-t border-gray-100">
+                            {% for meal in meal_order %}
+                            <td class="px-6 py-4 text-gray-800 font-medium">
+                                {{ summary[meal] }} item{{ 's' if summary[meal] != 1 else '' }}
+                            </td>
+                            {% endfor %}
+                            <td class="px-6 py-4 font-bold text-gray-800">{{ total }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if not data %}
+        <div class="bg-white rounded-xl shadow-sm px-6 py-12 text-center text-gray-400">
+            No entries found for this date range.
+        </div>
+        {% endif %}
+
+        <!-- Daily entries -->
+        {% for day in data | sort %}
+        <div class="bg-white rounded-xl shadow-sm mb-6 overflow-hidden">
+            <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                <h2 class="font-bold text-gray-800 text-lg">
+                    {{ day }}
+                    <span class="font-normal text-gray-400 text-sm ml-2">
+                        {{ ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][
+                            (day | string | replace('-','') | int // 1) % 7
+                        ] if false else '' }}
+                    </span>
+                </h2>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for meal in meal_order %}
+                {% set items = data[day][meal] %}
+                <div class="px-6 py-4">
+                    <div class="flex items-baseline gap-3 mb-2">
+                        <h3 class="font-semibold text-gray-700 w-32 shrink-0">{{ meal_labels[meal] }}</h3>
+                        {% if not items %}
+                        <span class="text-gray-400 text-sm italic">—</span>
+                        {% endif %}
+                    </div>
+                    {% if items %}
+                    <ul class="ml-32 space-y-1 -mt-2">
+                        {% for item in items %}
+                        <li class="text-sm">
+                            <span class="text-gray-800">{{ item.food }}</span>
+                            {% if item.notes %}
+                            <span class="text-gray-400 ml-2">— {{ item.notes }}</span>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+
+    </main>
+</body>
+</html>

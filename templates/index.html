@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Diary</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#22c55e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Food Diary">
+    <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .entry-row:hover .delete-btn { opacity: 1; }
+        .delete-btn { opacity: 0; transition: opacity 0.15s; }
+        .edit-btn { opacity: 0; transition: opacity 0.15s; }
+        .entry-row:hover .edit-btn { opacity: 1; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-20">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-3 justify-between">
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-bold text-gray-800">🥗 Food Diary</h1>
+                <span class="text-sm text-gray-400 hidden sm:inline">{{ username }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="changeDay(-1)"
+                    class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 text-lg font-bold">‹</button>
+                <input type="date" id="dateInput"
+                    class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                <button onclick="changeDay(1)"
+                    class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 text-lg font-bold">›</button>
+                <button onclick="goToToday()"
+                    class="text-sm bg-blue-500 hover:bg-blue-600 text-white px-4 py-1.5 rounded-lg transition-colors">Today</button>
+                <button onclick="openReportModal()"
+                    class="text-sm text-gray-600 hover:text-gray-900 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">📋 Report</button>
+                <a href="/logout"
+                    class="text-sm text-gray-500 hover:text-gray-800 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">Sign out</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Day label -->
+    <div class="max-w-5xl mx-auto px-4 pt-4 pb-1">
+        <p id="dayLabel" class="text-sm font-medium text-gray-500"></p>
+    </div>
+
+    <!-- Meal grid -->
+    <main class="max-w-5xl mx-auto px-4 pb-10">
+        <div id="mealsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-2"></div>
+    </main>
+
+    <!-- Report modal -->
+    <div id="reportModal" class="hidden fixed inset-0 bg-black/40 z-30 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">📋 Report &amp; Export</h3>
+            <div class="grid grid-cols-2 gap-3 mb-5">
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">From</label>
+                    <input id="reportFrom" type="date"
+                        class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">To</label>
+                    <input id="reportTo" type="date"
+                        class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300">
+                </div>
+            </div>
+            <div class="flex flex-col gap-2">
+                <button onclick="openReport()"
+                    class="w-full bg-gray-800 hover:bg-gray-900 text-white text-sm py-2.5 rounded-lg transition-colors">
+                    🖨 Open Printable Report
+                </button>
+                <button onclick="downloadCSV()"
+                    class="w-full bg-green-500 hover:bg-green-600 text-white text-sm py-2.5 rounded-lg transition-colors">
+                    ⬇ Export CSV
+                </button>
+                <button onclick="closeReportModal()"
+                    class="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm py-2.5 rounded-lg transition-colors">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit modal -->
+    <div id="editModal" class="hidden fixed inset-0 bg-black/40 z-30 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h3 class="font-semibold text-gray-800 mb-4">Edit Entry</h3>
+            <input type="hidden" id="editId">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Food name</label>
+            <input id="editFoodName" type="text"
+                class="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                onkeydown="if(event.key==='Enter')saveEdit()">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Notes (optional)</label>
+            <input id="editNotes" type="text"
+                class="w-full border rounded-lg px-3 py-2 text-sm mb-5 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                onkeydown="if(event.key==='Enter')saveEdit()">
+            <div class="flex gap-2 justify-end">
+                <button onclick="closeEdit()" class="text-sm px-4 py-2 rounded-lg border hover:bg-gray-50">Cancel</button>
+                <button onclick="saveEdit()" class="text-sm px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white">Save</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+const MEALS = [
+    { key: 'breakfast', label: 'Breakfast',       icon: '🌅', border: '#f59e0b', header: '#fffbeb', text: '#92400e', btn: '#d97706' },
+    { key: 'snack1',    label: 'Snack 1',          icon: '🍎', border: '#10b981', header: '#f0fdf4', text: '#065f46', btn: '#059669' },
+    { key: 'lunch',     label: 'Lunch',           icon: '☀️', border: '#3b82f6', header: '#eff6ff', text: '#1e40af', btn: '#2563eb' },
+    { key: 'snack2',    label: 'Snack 2',          icon: '🍊', border: '#f97316', header: '#fff7ed', text: '#9a3412', btn: '#ea580c' },
+    { key: 'dinner',    label: 'Dinner',          icon: '🌙', border: '#8b5cf6', header: '#f5f3ff', text: '#4c1d95', btn: '#7c3aed' },
+];
+
+let currentDate = todayStr();
+let entries = {};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.getElementById('dateInput').value = currentDate;
+document.getElementById('dateInput').addEventListener('change', e => {
+    currentDate = e.target.value;
+    updateDayLabel();
+    loadEntries();
+});
+updateDayLabel();
+loadEntries();
+
+// ── Date helpers ──────────────────────────────────────────────────────────────
+function todayStr() {
+    return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+}
+
+function changeDay(delta) {
+    const d = new Date(currentDate + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    currentDate = d.toLocaleDateString('en-CA');
+    document.getElementById('dateInput').value = currentDate;
+    updateDayLabel();
+    loadEntries();
+}
+
+function goToToday() {
+    currentDate = todayStr();
+    document.getElementById('dateInput').value = currentDate;
+    updateDayLabel();
+    loadEntries();
+}
+
+function updateDayLabel() {
+    const d = new Date(currentDate + 'T12:00:00');
+    const today = todayStr();
+    const yesterday = (() => { const y = new Date(); y.setDate(y.getDate()-1); return y.toLocaleDateString('en-CA'); })();
+    let prefix = '';
+    if (currentDate === today) prefix = 'Today · ';
+    else if (currentDate === yesterday) prefix = 'Yesterday · ';
+    document.getElementById('dayLabel').textContent = prefix + d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// ── Data ──────────────────────────────────────────────────────────────────────
+async function loadEntries() {
+    const res = await fetch(`/api/entries?date=${currentDate}`);
+    if (res.status === 401) { window.location = '/login'; return; }
+    const data = await res.json();
+    entries = {};
+    MEALS.forEach(m => { entries[m.key] = []; });
+    data.forEach(e => { if (entries[e.meal]) entries[e.meal].push(e); });
+    renderMeals();
+}
+
+async function addEntry(mealKey) {
+    const foodInput = document.getElementById(`food-${mealKey}`);
+    const notesInput = document.getElementById(`notes-${mealKey}`);
+    const foodName = foodInput.value.trim();
+    if (!foodName) { foodInput.focus(); return; }
+
+    const res = await fetch('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: currentDate, meal: mealKey, food_name: foodName, notes: notesInput.value.trim() })
+    });
+    if (res.ok) {
+        foodInput.value = '';
+        notesInput.value = '';
+        foodInput.focus();
+        await loadEntries();
+    }
+}
+
+async function deleteEntry(id) {
+    await fetch(`/api/entries/${id}`, { method: 'DELETE' });
+    loadEntries();
+}
+
+// ── Edit modal ────────────────────────────────────────────────────────────────
+function openEdit(id, foodName, notes) {
+    document.getElementById('editId').value = id;
+    document.getElementById('editFoodName').value = foodName;
+    document.getElementById('editNotes').value = notes || '';
+    document.getElementById('editModal').classList.remove('hidden');
+    document.getElementById('editFoodName').focus();
+}
+
+function closeEdit() {
+    document.getElementById('editModal').classList.add('hidden');
+}
+
+async function saveEdit() {
+    const id = document.getElementById('editId').value;
+    const foodName = document.getElementById('editFoodName').value.trim();
+    if (!foodName) return;
+    await fetch(`/api/entries/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ food_name: foodName, notes: document.getElementById('editNotes').value.trim() })
+    });
+    closeEdit();
+    loadEntries();
+}
+
+document.getElementById('editModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('editModal')) closeEdit();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeEdit(); });
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderMeals() {
+    document.getElementById('mealsGrid').innerHTML = MEALS.map(m => mealCard(m)).join('');
+}
+
+function mealCard(meal) {
+    const items = entries[meal.key] || [];
+    const itemsHtml = items.length === 0
+        ? `<p class="text-gray-400 text-sm italic py-3">Nothing logged yet</p>`
+        : items.map(item => `
+            <div class="entry-row flex items-start gap-2 py-2.5 border-b border-gray-100 last:border-0">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-800 break-words">${esc(item.food_name)}</p>
+                    ${item.notes ? `<p class="text-xs text-gray-500 mt-0.5 break-words">${esc(item.notes)}</p>` : ''}
+                </div>
+                <div class="flex gap-1 shrink-0 mt-0.5">
+                    <button class="edit-btn w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-blue-500 hover:bg-blue-50 text-xs"
+                        onclick="openEdit(${item.id}, ${JSON.stringify(item.food_name)}, ${JSON.stringify(item.notes || '')})">✎</button>
+                    <button class="delete-btn w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-red-500 hover:bg-red-50 text-sm"
+                        onclick="deleteEntry(${item.id})">✕</button>
+                </div>
+            </div>`).join('');
+
+    return `
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col"
+         style="border-left: 4px solid ${meal.border}">
+        <div class="flex items-center justify-between px-4 py-3" style="background:${meal.header}">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">${meal.icon}</span>
+                <h2 class="font-semibold text-sm" style="color:${meal.text}">${meal.label}</h2>
+                <span class="text-xs text-gray-400 font-normal">${items.length ? `${items.length} item${items.length>1?'s':''}` : ''}</span>
+            </div>
+        </div>
+        <div class="px-4 py-2 flex-1">
+            ${itemsHtml}
+        </div>
+        <!-- Add form always visible at bottom -->
+        <div class="px-4 pb-4 pt-2 border-t border-gray-50">
+            <div class="flex gap-2">
+                <input type="text" id="food-${meal.key}" placeholder="Add food…"
+                    class="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:border-transparent"
+                    style="--tw-ring-color:${meal.border}"
+                    onkeydown="if(event.key==='Enter')addEntry('${meal.key}')">
+                <button onclick="addEntry('${meal.key}')"
+                    class="shrink-0 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+                    style="background:${meal.btn}">Add</button>
+            </div>
+            <input type="text" id="notes-${meal.key}" placeholder="Notes (optional)…"
+                class="w-full mt-2 border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-2"
+                onkeydown="if(event.key==='Enter')addEntry('${meal.key}')">
+        </div>
+    </div>`;
+}
+
+function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Report modal ──────────────────────────────────────────────────────────────
+function openReportModal() {
+    document.getElementById('reportFrom').value = currentDate;
+    document.getElementById('reportTo').value   = currentDate;
+    document.getElementById('reportModal').classList.remove('hidden');
+}
+function closeReportModal() {
+    document.getElementById('reportModal').classList.add('hidden');
+}
+function openReport() {
+    const from = document.getElementById('reportFrom').value;
+    const to   = document.getElementById('reportTo').value;
+    window.open(`/report?from=${from}&to=${to}`, '_blank');
+    closeReportModal();
+}
+function downloadCSV() {
+    const from = document.getElementById('reportFrom').value;
+    const to   = document.getElementById('reportTo').value;
+    window.location = `/api/export?from=${from}&to=${to}`;
+    closeReportModal();
+}
+document.getElementById('reportModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('reportModal')) closeReportModal();
+});
+
+// ── Service Worker ────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
